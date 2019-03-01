@@ -41,11 +41,11 @@ function [shortest_paths,g] = create_graph(connections,targets)
     
     % find shortest path for each node to one of the target nodes
     for i=1:length(connections)
-        sp = zeros(1,length(connections));
+        sp = [];
         for j=1:length(targets)
-            if i ~= targets(j)
+            if ~any(i==targets)
                 sp_cand = g.shortestpath(i,targets(j));
-                if length(sp_cand) < length(sp)
+                if length(sp_cand) < length(sp) || isempty(sp)
                     sp = sp_cand;
                 end
             end

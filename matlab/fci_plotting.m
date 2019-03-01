@@ -15,16 +15,16 @@ statenum2label = {'x','xdot','y','ydot'};
 % agent_plots{1} = [1 2 2 3 3 4;
 %                     2 2 3 3 4 4];
 % agent_plots{2} = [4 5 5 6;5 5 6 6];
-agent_plots{1} = [1 2 3 4 5 6;
-                    1 2 3 4 5 6];
-agent_plots{2} = [1 2 3 4 4;
-                    3 3 4 5 6];
+% agent_plots{1} = [1 2 3 4 5 6;
+%                     1 2 3 4 5 6];
+% agent_plots{2} = [1 2 3 4 4;
+%                     3 3 4 5 6];
 % agent_plots{1} = [1 2; 1 2];
 % agent_plots{2} = [1 2;2 1];
-% agent_plots{1} = [18 16 4 13 13 22;
-%                     18 18 10 13 15 30];
-% agent_plots{2} = [4 10 15 16 22 30;
-%                     4 10 15 16 22 30];
+agent_plots{1} = [18 16 4 13 13 22 21 21;
+                    18 18 10 13 15 30 27 28];
+agent_plots{2} = [4 10 15 16 22 30 28 27;
+                    4 10 15 16 22 30 28 27];
 
 color_wheel = [0    0.4470    0.7410;
     0.8500    0.3250    0.0980;
@@ -105,46 +105,46 @@ xlabel('Time [s]')
 ylabel('\tau')
 title('CI threshold for connectivity group 6: 23-30')
 
-end
+figure
+subplot(2,2,1)
+hold on; grid on;
+plot(agents{18}.local_filter.innovation_history(1,:))
+plot(agents{18}.local_filter.innovation_history(2,:))
+legend('x component','y component')
+title('Robot 18 local estimate innov')
 
-% figure
-% subplot(2,2,1)
-% hold on; grid on;
-% plot(agents{18}.local_filter.innovation_history(1,:))
-% plot(agents{18}.local_filter.innovation_history(2,:))
-% legend('x component','y component')
-% title('Robot 18 local estimate innov')
-% 
-% subplot(2,2,2)
-% hold on; grid on;
-% plot(agents{22}.local_filter.innovation_history(1,:))
-% plot(agents{22}.local_filter.innovation_history(2,:))
-% legend('x component','y component')
-% title('Robot 22 local estimate innov')
-% 
-% subplot(2,2,3)
-% hold on; grid on;
-% plot(agents{18}.common_estimates{1}.innovation_history(1,:))
-% plot(agents{18}.common_estimates{1}.innovation_history(2,:))
-% legend('x component','y component')
-% title('Robot 18 common estimate innov')
-% 
-% subplot(2,2,4)
-% hold on; grid on;
-% plot(agents{22}.common_estimates{1}.innovation_history(1,:))
-% plot(agents{22}.common_estimates{1}.innovation_history(2,:))
-% legend('x component','y component')
-% title('Robot 22 common estimate innov')
+subplot(2,2,2)
+hold on; grid on;
+plot(agents{22}.local_filter.innovation_history(1,:))
+plot(agents{22}.local_filter.innovation_history(2,:))
+legend('x component','y component')
+title('Robot 22 local estimate innov')
+
+subplot(2,2,3)
+hold on; grid on;
+plot(agents{18}.common_estimates{1}.innovation_history(1,:))
+plot(agents{18}.common_estimates{1}.innovation_history(2,:))
+legend('x component','y component')
+title('Robot 18 common estimate innov')
+
+subplot(2,2,4)
+hold on; grid on;
+plot(agents{22}.common_estimates{1}.innovation_history(1,:))
+plot(agents{22}.common_estimates{1}.innovation_history(2,:))
+legend('x component','y component')
+title('Robot 22 common estimate innov')
+
+end
 
 ci_trigger_mat_plotting = ci_trigger_mat;
 ci_trigger_mat_plotting(ci_trigger_mat_plotting == 0) = NaN;
 
 abs_meas_mat(abs_meas_mat == 0) = NaN;
 
-figure
-heatmap(ci_trigger_mat);
+% figure
+% heatmap(ci_trigger_mat);
 
-for state_num=1
+for state_num=3
 
 for ii=1:length(agent_plots)
 

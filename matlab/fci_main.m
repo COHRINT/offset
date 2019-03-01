@@ -8,20 +8,26 @@
 % in that the state vectors of each agent are reduced from the whole
 % network's states.
 
-clear; close all; clc;
+clear; %close all; clc;
 % load('sensor_noise_data.mat');
 
-rng(238)
+rng(999)
 
 %% Specify connections
 
-connections = {[3],[3],[1,2,4],[3,5,6],[4],[4]};
+% connections = {[3],[3],[1,2,4],[3,5,6],[4],[4]};
 
 % connections = {[2],[1,3],[2,4],[3,5],[4,6],[5]};
 
 % connections = {[5],[5],[6],[6],[1,2,7],[3,4,7],[5,6,8],[7,9,10],[8,11,12],...
 %                 [8,13,14],[9],[9],[10],[10]};
 
+connections = {[9],[9],[10],[10],[11],[11],[12],[12],...
+                [1,2,13],[3,4,13],[5,6,14],[7,8,14],[9,10,15],[11,12,15],[13,14,16],...
+                [15,17,18],[16,19,20],[16,21,22],[17,23,24],[17,25,26],[18,27,28],...
+                [18,29,30],[19],[19],[20],[20],[21],[21],[22],[22]};
+
+            
 % connections = {[9],[9],[10],[10],[11],[11],[12],[12],...
 %                 [1,2,13],[3,4,13],[5,6,14],[7,8,14],[9,10,15],[11,12,15],[13,14,16],...
 %                 [15,17,18],[16,19,20],[16,21,22],[17,23,24],[17,25,26],[18,27,28],...
@@ -32,20 +38,22 @@ connections = {[3],[3],[1,2,4],[3,5,6],[4],[4]};
 % connections = {[2],[1]};
             
 % specify which platforms get gps-like measurements
-abs_meas_vec = [1 6];
-
+abs_meas_vec = [13 14 17 18];
 % number of agents
 N = length(connections);
 % connection topology: tree
 num_connections = 3;
+
+% create graph and find shortest paths to gps nodes
+shortest_paths = create_graph(connections,abs_meas_vec);
 
 % delta_vec = 0:0.5:5;
 % tau_state_goal_vec = 5:0.5:15;
 % tau_state_vec = 0:0.5:25;
 
 delta_vec = [1];
-tau_state_goal_vec = 15;
-msg_drop_prob_vec = 0;
+tau_state_goal_vec = [15];
+msg_drop_prob_vec = [0];
 
 % cost = zeros(length(delta_vec),length(tau_state_goal_vec),5);
 w1 = 0.5;
@@ -88,7 +96,7 @@ msg_drop_prob = msg_drop_prob_vec(idx3);
 %% True starting position and input
 
 for i=1:N
-    x_true = [i*10,0,i*10,0]' + mvnrnd([0,0,0,0],diag([5 5 5 5]))';
+    x_true = [i*10,0,i*10,0]' + mvnrnd([0,0,0,0],diag([5 0.1 5 0.1]))';
     x_true_vec((i-1)*4+1:(i-1)*4+4,1) = x_true;
     
     % generate input for platforms
@@ -134,24 +142,32 @@ ci_trigger_mat = zeros(N,length(input_tvec));
 for i=1:N
     
     agent_id = i;
-    
-    % construct local estimates
-    n = (length(connections{i})+1)*4;
-    [F,G] = ncv_dyn(dt,length(connections{i})+1);
-%     Q_localfilter = 1*eye(n);
-    Q_localfilter_cell = cell(1,length(connections{i})+1);
-    [Q_localfilter_cell{:}] = deal(Q_local);
-    Q_localfilter = blkdiag(Q_localfilter_cell{:});
 
     ids = sort([agent_id,connections{i}]);
+    % add shortest path to gps node to estimate
+    gps_sp_ids = setdiff(shortest_paths{i},ids);
+    ids = sort([ids,gps_sp_ids]);
+    connections_new = sort([gps_sp_ids,connections{i}]);
+    meas_connections = connections{i};
+    
+    est_state_length = length(ids);
+    
+    % construct local estimates
+    n = (est_state_length)*4;
+    [F,G] = ncv_dyn(dt,est_state_length);
+%     Q_localfilter = 1*eye(n);
+    Q_localfilter_cell = cell(1,est_state_length);
+    [Q_localfilter_cell{:}] = deal(Q_local);
+    Q_localfilter = blkdiag(Q_localfilter_cell{:});
+       
     x0 = [];
     for j=1:length(ids)
         x0 = [x0; x_true_vec((ids(j)-1)*4+1:(ids(j)-1)*4+4,1)];
     end
     
-    P0 = 100*eye(4*(length(connections{i})+1));
+    P0 = 100*eye(4*est_state_length);
     
-    local_filter = ETKF(F,G,0,0,Q_localfilter,R_abs,R_rel,x0,P0,delta,agent_id,connections{i});
+    local_filter = ETKF(F,G,0,0,Q_localfilter,R_abs,R_rel,x0,P0,delta,agent_id,connections_new);
     
     % construct common estimates, will always only have two agents
     [F_comm,G_comm] = ncv_dyn(dt,2);
@@ -159,10 +175,10 @@ for i=1:N
     Q_comm = blkdiag(Q_local,Q_local);
     common_estimates = {};
     
-    for j=1:length(connections{i})
+    for j=1:length(meas_connections)
         
         % make sure common estimate state vector is ordered by agent id
-        comm_ids = sort([agent_id,connections{i}(j)]);
+        comm_ids = sort([agent_id,meas_connections(j)]);
         x0_comm = [];
         
         for k=1:length(comm_ids)
@@ -170,10 +186,10 @@ for i=1:N
         end
 
         P0_comm = 100*eye(8);
-        common_estimates{j} = ETKF(F_comm,G_comm,0,0,Q_comm,R_abs,R_rel,x0_comm,P0_comm,delta,agent_id,connections{i}(j));
+        common_estimates{j} = ETKF(F_comm,G_comm,0,0,Q_comm,R_abs,R_rel,x0_comm,P0_comm,delta,agent_id,meas_connections(j));
     end
     
-    agents{i} = Agent(agent_id,connections{i},local_filter,common_estimates,x_true_vec((i-1)*4+1:(i-1)*4+4,1),msg_drop_prob,length(x0)*tau_state_goal,length(x0)*tau_state);
+    agents{i} = Agent(agent_id,connections_new,meas_connections,gps_sp_ids,local_filter,common_estimates,x_true_vec((i-1)*4+1:(i-1)*4+4,1),msg_drop_prob,length(x0)*tau_state_goal,length(x0)*tau_state);
     
 end
 
@@ -234,18 +250,18 @@ for i = 2:length(input_tvec)
         end
         
         % relative position
-        for k=randperm(length(agents{j}.connections))
+        for k=randperm(length(agents{j}.meas_connections))
 %             if agents{j}.agent_id ~= 5
                 v_rel = mvnrnd([0,0],R_rel)';
 %                 v_rel = v_rel_data{j}(:,i);
                 y_rel = H_rel*[agents{j}.true_state(:,end); ...
-                    agents{agents{j}.connections(k)}.true_state(:,end)] + v_rel;
-                y_rel_msg = struct('src',agents{j}.agent_id,'dest',agents{j}.connections(k),...
+                    agents{agents{j}.meas_connections(k)}.true_state(:,end)] + v_rel;
+                y_rel_msg = struct('src',agents{j}.agent_id,'dest',agents{j}.meas_connections(k),...
                     'status',[1 1],'type',"rel",'data',y_rel);
                 msgs{end+1} = y_rel_msg;
                 
                 if binornd(1,1-msg_drop_prob)
-                baseline_filter.update(y_rel,'rel',agents{j}.agent_id,agents{j}.connections(k));
+                baseline_filter.update(y_rel,'rel',agents{j}.agent_id,agents{j}.meas_connections(k));
                 end
                 
                 rel_meas_mat(j,i,1) = y_rel(1);
@@ -258,6 +274,7 @@ for i = 2:length(input_tvec)
 %         input = zeros(2,1);
         outgoing = agents{j}.process_local_measurements(input,msgs);
         
+    % plot(input_tvec,ci_time_vec,'x')
 %         add outgoing measurements to each agents "inbox"
         for k=randperm(length(outgoing))
             dest = outgoing{k}.dest;
@@ -283,6 +300,15 @@ for i = 2:length(input_tvec)
     
     for j=randperm(length(agents))
         alpha = ones(4*(length(agents{j}.connections)+1),1);
+        
+        if ~isempty(agents{j}.gps_connections)
+            gps_all_idx = [];
+            for gps_ind = 1:length(agents{j}.gps_connections)
+                [~,gps_idx] = agents{j}.get_location(agents{j}.gps_connections(gps_ind));
+                gps_all_idx = [gps_all_idx, gps_idx];
+            end
+            alpha(gps_all_idx) = zeros(1,length(gps_all_idx));
+        end
 
         % check trace of cov to determine if CI should be triggered
         if trace(agents{j}.local_filter.P*diag(alpha)) > agents{j}.tau
@@ -297,15 +323,15 @@ for i = 2:length(input_tvec)
             % connection inboxes
             x_snap = agents{j}.local_filter.x;
             P_snap = agents{j}.local_filter.P;
-            for k=randperm(length(agents{j}.connections))
+            for k=randperm(length(agents{j}.meas_connections))
     
                 % compute transforms for platform and connection, and
                 % number of intersecting states
                 
                 [Ta,il_a] = gen_sim_transform(agents{j}.agent_id,agents{j}.connections,...
-                    agents{agents{j}.connections(k)}.agent_id,agents{agents{j}.connections(k)}.connections);
-                [Tb,il_b] = gen_sim_transform(agents{agents{j}.connections(k)}.agent_id,...
-                    agents{agents{j}.connections(k)}.connections,agents{j}.agent_id,agents{j}.connections);
+                    agents{agents{j}.meas_connections(k)}.agent_id,agents{agents{j}.meas_connections(k)}.connections);
+                [Tb,il_b] = gen_sim_transform(agents{agents{j}.meas_connections(k)}.agent_id,...
+                    agents{agents{j}.meas_connections(k)}.connections,agents{j}.agent_id,agents{j}.connections);
 
                 % transform means and covariances to group common states at
                 % beginning of state vector/covariance
@@ -315,10 +341,15 @@ for i = 2:length(input_tvec)
                 PaTred = PaT(1:il_a,1:il_a);
                 
 %                 ci_inbox{agents{j}.connections(k)}{end+1} = {x_snap,P_snap,agents{j}.agent_id,agents{j}.connections};
-                ci_inbox{agents{j}.connections(k)}{end+1} = {xaTred,PaTred,agents{j}.agent_id,agents{j}.connections,agents{j}.tau};
+                ci_inbox{agents{j}.meas_connections(k)}{end+1} = {xaTred,PaTred,...
+                                                        agents{j}.agent_id,...
+                                                        agents{j}.connections,...
+                                                        agents{j}.meas_connections,...
+                                                        agents{j}.gps_connections,...
+                                                        agents{j}.tau};
                 
-                x_conn_snap = agents{agents{j}.connections(k)}.local_filter.x;
-                P_conn_snap = agents{agents{j}.connections(k)}.local_filter.P;
+                x_conn_snap = agents{agents{j}.meas_connections(k)}.local_filter.x;
+                P_conn_snap = agents{agents{j}.meas_connections(k)}.local_filter.P;
                 
                 xbT = Tb\x_conn_snap;
                 xbTred = xbT(1:il_b);
@@ -326,7 +357,11 @@ for i = 2:length(input_tvec)
                 PbTred = PbT(1:il_b,1:il_b);
                 
 %                 ci_inbox{j}{end+1} = {x_conn_snap,P_conn_snap,agents{j}.connections(k),agents{agents{j}.connections(k)}.connections};
-                ci_inbox{j}{end+1} = {xbTred,PbTred,agents{j}.connections(k),agents{agents{j}.connections(k)}.connections,agents{agents{j}.connections(k)}.ci_trigger_rate};
+                ci_inbox{j}{end+1} = {xbTred,PbTred,agents{j}.meas_connections(k),...
+                        agents{agents{j}.meas_connections(k)}.connections,...
+                        agents{agents{j}.meas_connections(k)}.meas_connections,...
+                        agents{agents{j}.meas_connections(k)}.gps_connections,...
+                        agents{agents{j}.meas_connections(k)}.ci_trigger_rate};
                 
                 if isempty(agents{agents{j}.connections(k)}.connections)
                     disp('break')
@@ -358,20 +393,45 @@ for i = 2:length(input_tvec)
                 Pb = ci_inbox{j}{k}{2};
                 b_id = ci_inbox{j}{k}{3};
                 b_connections = ci_inbox{j}{k}{4};
-                b_rate = ci_inbox{j}{k}{5};
+                b_meas_connections = ci_inbox{j}{k}{5};
+                b_gps_connections = ci_inbox{j}{k}{6};
+                b_rate = ci_inbox{j}{k}{7};
+                
+                % create placeholders for ests, in case gps needs removal
+                xa_fuse = xa;
+                Pa_fuse = Pa;
+                xb_fuse = xb;
+                Pb_fuse = Pb;
                 
                 % construct transformation
                 [Ta,il_a,inter] = gen_sim_transform(agents{j}.agent_id,agents{j}.connections,b_id,b_connections);
+%                 [Ta,il_a,inter] = gen_sim_transform(b_id,b_connections,agents{j}.agent_id,agents{j}.meas_connections);
                 
+                % remove non-directly connected gps states from a, b ests
+%                 if ~isempty(agents{j}.gps_connections)
+%                     % find gps states
+%                     [~,agent_gps_idx] = agents{j}.get_location(agents{j}.gps_connections);
+%                     % get measure states by removing gps from total
+%                     agent_meas_idx = setdiff(1:size(xa,1),agent_gps_idx);
+%                     xa_fuse = xa(agent_meas_idx);
+%                     Pa_fuse = Pa(agent_meas_idx,agent_meas_idx);
+%                     
+%                     send_gps_loc = find(sort(intersect([b_connections,b_id],[agents{j}.agent_id,agents{j}.connections])) == agents{j}.gps_connections);
+%                     send_gps_idx = 4*(send_gps_loc-1)+1:4*(send_gps_loc-1)+4;
+%                     send_meas_idx = setdiff(1:size(xb,1),send_gps_idx);
+%                     xb_fuse = xb(send_meas_idx);
+%                     Pb_fuse = Pb(send_meas_idx,send_meas_idx);
+%                 end
+
                 % transform means and covariances to group common states at
                 % beginning of state vector/covariance
-                xaT = Ta\xa;
+                xaT = Ta\xa_fuse;
                 xaTred = xaT(1:il_a);
-                PaT = Ta\Pa*Ta;
+                PaT = Ta\Pa_fuse*Ta;
                 PaTred = PaT(1:il_a,1:il_a);
                 
-                xbTred = xb;
-                PbTred = Pb;
+                xbTred = xb_fuse;
+                PbTred = Pb_fuse;
 
                 alpha = ones(size(PaTred,1),1);
                 [xc,Pc] = covar_intersect(xaTred,xbTred,PaTred,PbTred,alpha);
@@ -386,8 +446,24 @@ for i = 2:length(input_tvec)
                 v = V*(PaT\xaT + [invDd; zeros(size(PaT,1)-size(Pc,1),1)]);
                 
                 % transform back to normal state order
-                xa = Ta*v;
-                Pa = Ta*V/Ta;
+                xa_fuse = Ta*v;
+                Pa_fuse = Ta*V/Ta;
+                
+                xa = xa_fuse;
+                Pa = Pa_fuse;
+                
+                % if agent is tracking distant gps states
+%                 if ~isempty(agents{j}.gps_connections)    
+%                     % clone gps states from sender because we don't trust
+%                     % ours
+%                     send_gps_loc = find(sort(intersect([b_connections,b_id],[agents{j}.agent_id,agents{j}.connections])) == agents{j}.gps_connections);
+%                     [~,agent_gps_idx] = agents{j}.get_location(agents{j}.gps_connections);
+%                     send_gps_idx = 4*(send_gps_loc-1)+1:4*(send_gps_loc-1)+4;
+%                     xa(agent_gps_idx) = xb(send_gps_idx);
+%                     xa(agent_meas_idx) = xa_fuse;
+%                     Pa(agent_gps_idx,agent_gps_idx) = Pb(send_gps_idx,send_gps_idx);
+%                     Pa(agent_meas_idx,agent_meas_idx) = Pa_fuse;
+%                 end
                 
                 % update local estimates
                 agents{j}.local_filter.x = xa;
@@ -397,8 +473,31 @@ for i = 2:length(input_tvec)
                 for ii=randperm(length(agents{j}.common_estimates))
                     if agents{j}.common_estimates{ii}.connection == ci_inbox{j}{k}{3}
 %                         conn_loc = inter==agents{j}.common_estimates{ii}.connection;
-                        agents{j}.common_estimates{ii}.x = xc;
-                        agents{j}.common_estimates{ii}.P = Pc;
+                        % grab only states present in common estimates from
+                        % CI result
+                        if size(xc,1) > size(agents{j}.common_estimates{ii}.x,1)
+                            
+                            % have to move common estimate states to top of
+                            % CI result
+                            
+                            % sim transform: a is CI result, b is comm est
+                            a_connections_CI = intersect([agents{j}.agent_id,agents{j}.connections],...
+                                                    [b_id,b_connections]);
+                            b_connections_CI = [agents{j}.agent_id,...
+                                            agents{j}.common_estimates{ii}.connection];
+                            
+                            [Ta,il_a,inter] = gen_sim_transform([],a_connections_CI,[],b_connections_CI);
+
+                            xcT = Ta\xc;
+                            PcT = Ta\Pc*Ta;
+
+                            agents{j}.common_estimates{ii}.x = xcT(1:il_a);
+                            agents{j}.common_estimates{ii}.P = PcT(1:il_a,1:il_a);
+                        
+                        else
+                            agents{j}.common_estimates{ii}.x = xc;
+                            agents{j}.common_estimates{ii}.P = Pc;
+                        end
                         
                         agents{j}.connection_tau_rates(ii) = b_rate;
                     end
@@ -432,7 +531,9 @@ for i = 2:length(input_tvec)
         
         [loc,iidx] = agents{j}.get_location(agents{j}.agent_id);
 %         network_mse(j,i,idx1) = sum((agents{j}.local_filter.state_history(iidx,i) - agents{j}.true_state(:,i)).^2,1)./4;
-        network_mse(j,i,idx1) = norm(agents{j}.local_filter.state_history(iidx,i) - agents{j}.true_state(:,i))^2;
+        network_mse(j,i,idx3) = norm(agents{j}.local_filter.state_history(iidx([1 3]),i) - agents{j}.true_state([1 3],i))^2;
+        network_mse_xpos(j,i,idx3) = norm(agents{j}.local_filter.state_history(iidx(1),i) - agents{j}.true_state(1,i))^2;
+        network_mse_ypos(j,i,idx3) = norm(agents{j}.local_filter.state_history(iidx(3),i) - agents{j}.true_state(3,i))^2;
         
     end
               
@@ -441,7 +542,9 @@ for i = 2:length(input_tvec)
 
 end
 
-avg_mse = mean(network_mse,1);
+avg_mse(idx3,:) = squeeze(mean(network_mse(:,:,idx3),1));
+avg_xmse(idx3,:) = squeeze(mean(network_mse_xpos(:,:,idx3),1));
+avg_ymse(idx3,:) = squeeze(mean(network_mse_ypos(:,:,idx3),1));
 
 %% compute costs and FOMs
 

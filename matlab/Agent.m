@@ -4,6 +4,8 @@ classdef Agent < handle
     properties
         agent_id
         connections
+        meas_connections
+        gps_connections
         num_states
         local_filter
         common_estimates
@@ -24,13 +26,15 @@ classdef Agent < handle
     end
     
     methods
-        function obj = Agent(agent_id,connections,local_filter,common_estimates,x_true,msg_drop_prob,tau_goal,tau)
+        function obj = Agent(agent_id,connections,meas_connections,gps_connections,local_filter,common_estimates,x_true,msg_drop_prob,tau_goal,tau)
             
             % agent id
             obj.agent_id = agent_id;
             
             % ids of connections
             obj.connections = connections;
+            obj.meas_connections = meas_connections;
+            obj.gps_connections = gps_connections;
             
             % number of states per platform
             obj.num_states = 4;
