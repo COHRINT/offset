@@ -31,23 +31,44 @@
 % xlabel('Time [s]')
 % ylabel('MSE [m^2]')
 
+gps_id = 13;
+mid_id = 22;
+far_id = 1;
+
+loop_var = tau_state_goal_vec;
 
 figure
 hold on; grid on;
-plot(input_tvec,network_mse(1,:,1))
+for i=1:length(loop_var)
+    plot(input_tvec(1:10:end),network_mse(gps_id,1:10:end,i),'-d')
+end
+plot(input_tvec(1:10:end),baseline_mse(gps_id,1:10:end,1),'-ko')
+title('Agent 13 position MSE')
+xlabel('Time [s]')
+ylabel('MSE [m^2]')
+legend('\tau=5','\tau=10','\tau=15','\tau=20','cent. FK')
+
+figure
+hold on; grid on;
+for i=1:length(loop_var)
+    plot(input_tvec(1:10:end),network_mse(mid_id,1:10:end,i),'-d')
+end
+plot(input_tvec(1:10:end),baseline_mse(mid_id,1:10:end,1),'-ko')
+title('Agent 22 position MSE')
+xlabel('Time [s]')
+ylabel('MSE [m^2]')
+legend('\tau=5','\tau=10','\tau=15','\tau=20','cent. FK')
+
+figure
+hold on; grid on;
+for i=1:length(loop_var)
+    plot(input_tvec(1:10:end),network_mse(far_id,1:10:end,i),'-d')
+end
+plot(input_tvec(1:10:end),baseline_mse(far_id,1:10:end,1),'-ko')
 title('Agent 1 position MSE')
 xlabel('Time [s]')
 ylabel('MSE [m^2]')
-
-figure
-hold on; grid on;
-plot(input_tvec,network_mse(10,:,1))
-title('Agent 2 position MSE')
-
-figure
-hold on; grid on;
-plot(input_tvec,network_mse(17,:,1))
-title('Agent 3 position MSE')
+legend('\tau=5','\tau=10','\tau=15','\tau=20','cent. FK')
 
 % figure
 % subplot(2,1,1)
