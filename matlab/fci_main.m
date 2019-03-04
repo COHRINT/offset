@@ -60,7 +60,7 @@ num_connections = 3;
 % tau_state_vec = 0:0.5:25;
 
 delta_vec = [1.5];
-tau_state_goal_vec = [15];
+tau_state_goal_vec = [5 10 15 20];
 msg_drop_prob_vec = [0];
 
 % cost = zeros(length(delta_vec),length(tau_state_goal_vec),5);
@@ -640,11 +640,11 @@ for i = 2:length(input_tvec)
         
         [loc,iidx] = agents{j}.get_location(agents{j}.agent_id);
 %         network_mse(j,i,idx1) = sum((agents{j}.local_filter.state_history(iidx,i) - agents{j}.true_state(:,i)).^2,1)./4;
-        network_mse(j,i,idx1) = norm(agents{j}.local_filter.state_history(iidx([1 3]),i) - agents{j}.true_state([1 3],i))^2;
-        network_mse_xpos(j,i,idx1) = norm(agents{j}.local_filter.state_history(iidx(1),i) - agents{j}.true_state(1,i))^2;
-        network_mse_ypos(j,i,idx1) = norm(agents{j}.local_filter.state_history(iidx(3),i) - agents{j}.true_state(3,i))^2;
+        network_mse(j,i,idx2) = norm(agents{j}.local_filter.state_history(iidx([1 3]),i) - agents{j}.true_state([1 3],i))^2;
+        network_mse_xpos(j,i,idx2) = norm(agents{j}.local_filter.state_history(iidx(1),i) - agents{j}.true_state(1,i))^2;
+        network_mse_ypos(j,i,idx2) = norm(agents{j}.local_filter.state_history(iidx(3),i) - agents{j}.true_state(3,i))^2;
         
-        baseline_mse(j,i,idx1) = norm(baseline_filter.state_history([4*(j-1)+1,4*(j-1)+3],i) - agents{j}.true_state([1 3],i))^2;
+        baseline_mse(j,i,idx2) = norm(baseline_filter.state_history([4*(j-1)+1,4*(j-1)+3],i) - agents{j}.true_state([1 3],i))^2;
 %         network_mse_xpos(j,i,idx3) = norm(agents{j}.local_filter.state_history(iidx(1),i) - agents{j}.true_state(1,i))^2;
 %         network_mse_ypos(j,i,idx3) = norm(agents{j}.local_filter.state_history(iidx(3),i) - agents{j}.true_state(3,i))^2;
         

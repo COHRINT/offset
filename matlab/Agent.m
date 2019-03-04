@@ -261,6 +261,11 @@ classdef Agent < handle
                             fm = inbox{i};
                             fm.dest = obj.forwarding_connections(k);
                             forward_msgs{end+1} = fm;
+                            
+                            % add sent msgs to count
+                            obj.msgs_sent = obj.msgs_sent + sum(fm.status);
+                            % possible msgs only increase by received
+                            obj.total_msgs = obj.total_msgs + sum(fm.status); 
                         end
                     end
                     
