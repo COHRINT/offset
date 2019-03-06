@@ -15,7 +15,7 @@ rng(999)
 
 %% Specify connections
 
-% connections = {[3],[3],[1,2,4],[3,5,6],[4],[4]};
+connections = {[3],[3],[1,2,4],[3,5,6],[4],[4]};
 
 % connections = {[2],[1,3],[2,4],[3,5],[4,6],[5]};
 
@@ -23,10 +23,10 @@ rng(999)
 %                 [8,13,14],[9],[9],[10],[10]};
 
 % tree, 30 agents
-connections = {[9],[9],[10],[10],[11],[11],[12],[12],...
-                [1,2,13],[3,4,13],[5,6,14],[7,8,14],[9,10,15],[11,12,15],[13,14,16],...
-                [15,17,18],[16,19,20],[16,21,22],[17,23,24],[17,25,26],[18,27,28],...
-                [18,29,30],[19],[19],[20],[20],[21],[21],[22],[22]};
+% connections = {[9],[9],[10],[10],[11],[11],[12],[12],...
+%                 [1,2,13],[3,4,13],[5,6,14],[7,8,14],[9,10,15],[11,12,15],[13,14,16],...
+%                 [15,17,18],[16,19,20],[16,21,22],[17,23,24],[17,25,26],[18,27,28],...
+%                 [18,29,30],[19],[19],[20],[20],[21],[21],[22],[22]};
 
 % multiple hub chain, 30 agents
 % connections = {[6],[6],[6],[6],[6],[1,2,3,4,5,12],...
@@ -46,7 +46,7 @@ connections = {[9],[9],[10],[10],[11],[11],[12],[12],...
 % connections = {[2],[1]};
             
 % specify which platforms get gps-like measurements
-abs_meas_vec = [13 14 17 18];
+abs_meas_vec = [1 6];
 % number of agents
 N = length(connections);
 % connection topology: tree
@@ -60,7 +60,7 @@ num_connections = 3;
 % tau_state_vec = 0:0.5:25;
 
 delta_vec = [1.5];
-tau_state_goal_vec = [5 10 15 20];
+tau_state_goal_vec = [10];
 msg_drop_prob_vec = [0];
 
 % cost = zeros(length(delta_vec),length(tau_state_goal_vec),5);
@@ -257,7 +257,7 @@ for i = 2:length(input_tvec)
 %             v = v_data{j}(:,i);
             y_abs = H_local*agents{j}.true_state(:,end) + v;
             y_abs_msg = struct('src',agents{j}.agent_id,'dest',agents{j}.agent_id,...
-                        'status',[1 1],'type',"abs",'data',y_abs);
+                        'target',agents{j}.agent_id,'status',[1 1],'type',"abs",'data',y_abs);
             msgs = {y_abs_msg};
             
             if binornd(1,1-msg_drop_prob)
@@ -276,7 +276,7 @@ for i = 2:length(input_tvec)
                 y_rel = H_rel*[agents{j}.true_state(:,end); ...
                     agents{agents{j}.meas_connections(k)}.true_state(:,end)] + v_rel;
                 y_rel_msg = struct('src',agents{j}.agent_id,'dest',agents{j}.meas_connections(k),...
-                    'status',[1 1],'type',"rel",'data',y_rel);
+                    'target',agents{j}.meas_connections(k),'status',[1 1],'type',"rel",'data',y_rel);
                 msgs{end+1} = y_rel_msg;
                 
                 if binornd(1,1-msg_drop_prob)
@@ -306,18 +306,18 @@ for i = 2:length(input_tvec)
     
     %% All agents now process received measurements, performing implicit and
     % explicit measurement updates
-    for j=randperm(length(agents))
-%         if j == 16 && i == 107
-%             disp('break')
+%     for j=randperm(length(agents))
+% %         if j == 16 && i == 107
+% %             disp('break')
+% %         end
+%         forwarding_msgs = agents{j}.process_received_measurements({inbox{j,:}});
+%         if length(forwarding_msgs) > 1
+%             for k = 2:length(forwarding_msgs)
+%                 dest = forwarding_msgs{k}.dest;
+%                 forward_inbox{dest,end+1} = forwarding_msgs{k};
+%             end
 %         end
-        forwarding_msgs = agents{j}.process_received_measurements({inbox{j,:}});
-        if length(forwarding_msgs) > 1
-            for k = 2:length(forwarding_msgs)
-                dest = forwarding_msgs{k}.dest;
-                forward_inbox{dest,end+1} = forwarding_msgs{k};
-            end
-        end
-    end
+%     end
     
     for j=randperm(length(agents))
         agents{j}.process_received_measurements({forward_inbox{j,:}});
